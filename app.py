@@ -47,7 +47,7 @@ else:
     password = input("パスワードを入力してください:")
     save_credentials(username, password)
 #moodleのログインページを指定
-login_url = ''
+login_url = 'https://moodle2024.mc2.osakac.ac.jp/2024/login/index.php'
 
 # 次の日のURLを生成
 def get_next_day_url():
