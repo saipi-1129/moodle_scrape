@@ -1,1 +1,1 @@
-# moodle_scrape
+初回時のみusername/passwordが必要
