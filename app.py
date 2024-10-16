@@ -11,7 +11,7 @@ chrome_options.add_argument("--log-level=3")  # エラーレベルのログの�
 
 driver = webdriver.Chrome(options=chrome_options)
 def main():
-    driver.get("https://moodle2024.mc2.osakac.ac.jp/2024/login/index.php")
+    driver.get(config.login_url)
 
     #ログイン情報
     NAME = config.NAME
@@ -31,7 +31,7 @@ def main():
     event_form = driver.find_element("xpath","/html/body/div[1]/div[2]/div/div[1]/section/div/aside/section[2]/div/div/div[1]/div/div[2]/table/tbody/tr[3]/td[3]/div[1]/a")
     current_timestamp = int(time.time())
 
-    driver.get(f"https://moodle2024.mc2.osakac.ac.jp/2024/calendar/view.php?view=day&time={current_timestamp}")
+    driver.get(config.dashboard_url)
 
     #課題一覧を表示
     for i in range(15):
