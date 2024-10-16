@@ -1,107 +1,58 @@
-import requests
-from bs4 import BeautifulSoup
-from datetime import datetime, timedelta
-import os
-import json
-from cryptography.fernet import Fernet
+import time
+from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 
-# 認証情報を保存するファイルパス
-credentials_file = 'credentials.json'
-key_file = 'secret.key'
+# Chromeオプションの設定
+chrome_options = Options()
+chrome_options.add_argument("--log-level=3")  # エラーレベルのログのみ表示
 
-# 暗号化キーを生成または読み込み
-def load_or_generate_key():
-    if os.path.exists(key_file):
-        with open(key_file, 'rb') as file:
-            return file.read()
-    else:
-        key = Fernet.generate_key()
-        with open(key_file, 'wb') as file:
-            file.write(key)
-        return key
-
-key = load_or_generate_key()
-cipher = Fernet(key)
-
-def save_credentials(username, password):
-    credentials = json.dumps({'username': username, 'password': password}).encode()
-    encrypted_credentials = cipher.encrypt(credentials)
-    with open(credentials_file, 'wb') as file:
-        file.write(encrypted_credentials)
-
-def load_credentials():
-    if os.path.exists(credentials_file):
-        with open(credentials_file, 'rb') as file:
-            encrypted_credentials = file.read()
-        decrypted_credentials = cipher.decrypt(encrypted_credentials)
-        return json.loads(decrypted_credentials.decode())
-    return None
-
-# 認証情報の読み込み
-credentials = load_credentials()
-if credentials:
-    username = credentials['username']
-    password = credentials['password']
-else:
-    username = input("ユーザーネームを入力してください:")
-    password = input("パスワードを入力してください:")
-    save_credentials(username, password)
-#moodleのログインページを指定
-login_url = 'https://moodle2024.mc2.osakac.ac.jp/2024/login/index.php'
-
-# 次の日のURLを生成
-def get_next_day_url():
-    next_day = datetime.now() + timedelta(days=1)
-    timestamp = int(next_day.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
-    return f'https://moodle2024.mc2.osakac.ac.jp/2024/calendar/view.php?view=day&time={timestamp}'
-
-def get_login_token(session, login_url):
-    login_page = session.get(login_url)
-    login_page_soup = BeautifulSoup(login_page.content, 'html.parser')
-    return login_page_soup.find('input', {'name': 'logintoken'})['value']
-
-def login(session, login_url, username, password, logintoken):
-    login_data = {
-        'anchor': '',
-        'logintoken': logintoken,
-        'username': username,
-        'password': password
-    }
-    return session.post(login_url, data=login_data)
-
-def scrape_events(session, target_url):
-    response = session.get(target_url)
-    soup = BeautifulSoup(response.content, 'html.parser')
-    return soup.find_all('div', class_='event')
-
-def print_event_details(events):
-    for event in events:
-        title = event.find('h3', class_='name').get_text()
-        date_time = event.find('div', class_='col-11').find('a').get_text()
-        
-        description_tag = event.find('div', class_='description-content')
-        description = description_tag.get_text(strip=True) if description_tag else '説明なし'
-        
-        course = event.find_all('div', class_='col-11')[-1].find('a').get_text()
-        
-        print('タイトル:', title)
-        print('日時:', date_time)
-        print('詳細:', description)
-        print('コース:', course)
-        print('-' * 20)
-
+driver = webdriver.Chrome(options=chrome_options)
 def main():
-    session = requests.Session()
-    logintoken = get_login_token(session, login_url)
-    login_response = login(session, login_url, username, password, logintoken)
+    driver.get("https://moodle2024.mc2.osakac.ac.jp/2024/login/index.php")
 
-    if 'あなたはログインしていません' in login_response.text:
-        print('ログインに失敗しました。認証情報を確認してください。')
-    else:
-        print('ログインに成功しました。')
-        target_url = get_next_day_url()
-        events = scrape_events(session, target_url)
-        print_event_details(events)
+    #ログイン情報
+    NAME = "USERNAME"
+    PASS = "PASSWORD"
 
-if __name__ == '__main__':
-    main()
+    #ログインの自動化
+    elem_username = driver.find_element("xpath", "/html/body/div[2]/div[2]/div/div/section/div/div/div/div/form/div[1]/input")
+    elem_username.send_keys(NAME)
+    elem_password = driver.find_element("xpath", "/html/body/div[2]/div[2]/div/div/section/div/div/div/div/form/div[2]/input")
+    elem_password.send_keys(PASS)
+    element_form = driver.find_element("xpath", "/html/body/div[2]/div[2]/div/div/section/div/div/div/div/form/div[3]/button")
+    element_form.click()
+    dashboard_form = driver.find_element("xpath","/html/body/div[1]/div[2]/div/div[2]/section/aside/section[1]/div/div/ul/li/ul/li[1]/p/a/span")
+    dashboard_form.click()
+
+    #ダッシュボードへ移動
+    event_form = driver.find_element("xpath","/html/body/div[1]/div[2]/div/div[1]/section/div/aside/section[2]/div/div/div[1]/div/div[2]/table/tbody/tr[3]/td[3]/div[1]/a")
+    current_timestamp = int(time.time())
+
+    driver.get(f"https://moodle2024.mc2.osakac.ac.jp/2024/calendar/view.php?view=day&time={current_timestamp}")
+
+    #課題一覧を表示
+    for i in range(15):
+        # 課題名
+        try:
+            h3 = driver.find_element("xpath", f'/html/body/div[1]/div[2]/div/div[1]/section/div/div/div[1]/div/div[2]/div[2]/div[{i + 1}]/div/div[1]/div[3]/h3')
+        except NoSuchElementException:
+            # print("課題名が見つかりませんでした。ループを終了します。")
+            break  # ループを終了
+
+        # 期限
+        limit = driver.find_element("xpath", f'/html/body/div[1]/div[2]/div/div[1]/section/div/div/div[1]/div/div[2]/div[2]/div[{i + 1}]/div/div[2]/div[1]/div[2]/span/a')
+        
+        try:  # 詳細がない場合のハンドリング
+            p = driver.find_element("xpath", f"/html/body/div[1]/div[2]/div/div[1]/section/div/div/div[1]/div/div[2]/div[2]/div[{i + 1}]/div/div[2]/div[3]/div[2]/div/p[1]")
+        except NoSuchElementException:
+            print("詳細はありません\n")
+        
+        print("#######################################################################################################")
+        print(f"~{h3.text}~")
+        print("\n")
+        # print(f"期限:{limit.text}")
+        print(f"詳細\n:{p.text}")
+
+main()
