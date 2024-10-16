@@ -1,2 +1,1 @@
-課題スクレイプ
-初回時のみusername/passwordが必要
+今日の課題
