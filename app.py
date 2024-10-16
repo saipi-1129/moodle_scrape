@@ -3,6 +3,7 @@ from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
+from config.config import config
 
 # Chromeオプションの設定
 chrome_options = Options()
@@ -13,8 +14,8 @@ def main():
     driver.get("https://moodle2024.mc2.osakac.ac.jp/2024/login/index.php")
 
     #ログイン情報
-    NAME = "USERNAME"
-    PASS = "PASSWORD"
+    NAME = config.NAME
+    PASS = config.PASS
 
     #ログインの自動化
     elem_username = driver.find_element("xpath", "/html/body/div[2]/div[2]/div/div/section/div/div/div/div/form/div[1]/input")
