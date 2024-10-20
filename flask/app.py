@@ -26,11 +26,12 @@ def fetch_assignments():
     elem_password.send_keys(PASS)
     element_form = driver.find_element("xpath", "/html/body/div[2]/div[2]/div/div/section/div/div/div/div/form/div[3]/button")
     element_form.click()
-    dashboard_form = driver.find_element("xpath","/html/body/div[1]/div[2]/div/div[2]/section/aside/section[1]/div/div/ul/li/ul/li[1]/p/a/span")
+    dashboard_form = driver.find_element("xpath", "/html/body/div[1]/div[2]/div/div[2]/section/aside/section[1]/div/div/ul/li/ul/li[1]/p/a/span")
     dashboard_form.click()
 
-    # ダッシュボードへ移動
-    driver.get("https://moodle2024.mc2.osakac.ac.jp/2024/calendar/view.php?view=day&time=1729004400")
+    # 現在のタイムスタンプを取得
+    current_timestamp = int(time.time())
+    driver.get(f"https://moodle2024.mc2.osakac.ac.jp/2024/calendar/view.php?view=day&time={current_timestamp}")
 
     assignments = []  # 課題を格納するリスト
 
@@ -60,6 +61,7 @@ def fetch_assignments():
 
     # 課題のリストをJSON形式で返す
     return jsonify(assignments)  # 課題のリストをJSON形式で返す
+
 
 @app.route('/kadai')
 def kadai():
