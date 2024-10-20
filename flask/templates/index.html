@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ログイン</title>
+</head>
+<body>
+    <div class="login-container">
+        <h1>ログイン</h1>
+        <form id="loginForm">  <!-- フォームにIDを追加 -->
+            <div class="form-group">
+                <label for="username">ユーザー名</label>
+                <input type="text" id="username" name="user_id" required>
+            </div>
+            <div class="form-group">
+                <label for="password">パスワード</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit">ログイン</button>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', function(event) {
+            event.preventDefault();  // デフォルトのフォーム送信を防ぐ
+            const userId = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+    
+            fetch('/fetch_assignments', {
+                method: 'POST',  // POSTメソッドを指定
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ user_id: userId, password: password })  // JSON形式でデータを送信
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok ' + response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log(data);  // 取得したデータをコンソールに表示
+                // 課題リストを表示するために/kadaiにリダイレクト
+                window.location.href = '/kadai';  // ここで/kadaiに遷移
+            })
+            .catch(error => console.error('Error:', error));
+        });
+    </script>
+</body>
+</html>
