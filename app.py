@@ -1,71 +1,123 @@
-from flask import Flask, jsonify, request, render_template, redirect, url_for  # render_templateをインポート
+from flask import Flask, render_template, request, session, redirect, url_for
 import time
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.webdriver.chrome.options import Options
+from config.config import config
 
 app = Flask(__name__)
+app.secret_key = 'your_secret_key_here' 
 
-@app.route('/')
-def index():
-    return render_template('index.html')  # ログインページを表示
+def get_moodle_data(username, password):
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--log-level=3")
 
-@app.route('/fetch_assignments', methods=['POST'])  # POSTメソッドを使用
-def fetch_assignments():
-    print("fetch_assignmentsが呼び出されました")  # デバッグ用
-    data = request.json  # JSONデータを取得
-    NAME = data.get("user_id")  # ユーザー名を取得
-    PASS = data.get("password")  # パスワードを取得
+    driver = webdriver.Chrome(options=chrome_options)
 
-    driver = webdriver.Chrome()
-    driver.get("https://moodle2024.mc2.osakac.ac.jp/2024/login/index.php")
+    try:
+        driver.get(config.login_url)
 
-    # ログインの自動化
-    elem_username = driver.find_element("xpath", "/html/body/div[2]/div[2]/div/div/section/div/div/div/div/form/div[1]/input")
-    elem_username.send_keys(NAME)
-    elem_password = driver.find_element("xpath", "/html/body/div[2]/div[2]/div/div/section/div/div/div/div/form/div[2]/input")
-    elem_password.send_keys(PASS)
-    element_form = driver.find_element("xpath", "/html/body/div[2]/div[2]/div/div/section/div/div/div/div/form/div[3]/button")
-    element_form.click()
-    dashboard_form = driver.find_element("xpath", "/html/body/div[1]/div[2]/div/div[2]/section/aside/section[1]/div/div/ul/li/ul/li[1]/p/a/span")
-    dashboard_form.click()
+        # ログインの自動化
+        elem_username = driver.find_element("xpath", "/html/body/div[2]/div[2]/div/div/section/div/div/div/div/form/div[1]/input")
+        elem_username.send_keys(username)
+        elem_password = driver.find_element("xpath", "/html/body/div[2]/div[2]/div/div/section/div/div/div/div/form/div[2]/input")
+        elem_password.send_keys(password)
+        element_form = driver.find_element("xpath", "/html/body/div[2]/div[2]/div/div/section/div/div/div/div/form/div[3]/button")
+        element_form.click()
 
-    # 現在のタイムスタンプを取得
-    current_timestamp = int(time.time())
-    driver.get(f"https://moodle2024.mc2.osakac.ac.jp/2024/calendar/view.php?view=day&time={current_timestamp}")
+        driver.get(config.dashboard_url)
 
-    assignments = []  # 課題を格納するリスト
-
-    # 課題一覧を表示
-    for i in range(10):
-        try:
-            # 課題名
-            h3 = driver.find_element("xpath", f'/html/body/div[1]/div[2]/div/div[1]/section/div/div/div[1]/div/div[2]/div[2]/div[{i + 1}]/div/div[1]/div[3]/h3')
-            # 期限
-            limit = driver.find_element("xpath", f'/html/body/div[1]/div[2]/div/div[1]/section/div/div/div[1]/div/div[2]/div[2]/div[{i + 1}]/div/div[2]/div[1]/div[2]/span/a')
-            # 詳細
+        assignments = []
+        for i in range(15):
             try:
-                p = driver.find_element("xpath", f"/html/body/div[1]/div[2]/div/div[1]/section/div/div/div[1]/div/div[2]/div[2]/div[{i + 1}]/div/div[2]/div[3]/div[2]/div/p[1]")
-                detail = p.text
+                h3 = driver.find_element("xpath", f'/html/body/div[1]/div[2]/div/div[1]/section/div/div/div[1]/div/div[2]/div[2]/div[{i + 1}]/div/div[1]/div[3]/h3')
+                assignment = {"name": h3.text}
+
+
+                try:
+                    limit = driver.find_element("xpath", f'/html/body/div[1]/div[2]/div/div[1]/section/div/div/div[1]/div/div[2]/div[2]/div[{i + 1}]/div/div[2]/div[1]/div[2]/span/a')
+                    assignment["deadline"] = limit.text
+                except NoSuchElementException:
+                    assignment["deadline"] = "N/A"
+                if assignment["deadline"] == "N/A":
+                    try:
+                        deadline = driver.find_element("xpath", f'/html/body/div[1]/div[2]/div/div[1]/section/div/div/div[1]/div/div[2]/div[2]/div[{i + 1}]/div/div[2]/div[1]/div[2]/a')
+                        assignment["deadline"] = deadline.text
+                    except NoSuchElementException:
+                        pass
+
+                assignment["jyugyou"] = "N/A"
+                for n in [3, 4]:
+                    try:
+                        jyugyou = driver.find_element("xpath", f'/html/body/div[1]/div[2]/div/div[1]/section/div/div/div[1]/div/div[2]/div[2]/div[{i + 1}]/div/div[2]/div[{n}]/div[2]/a')
+                        assignment["jyugyou"] = jyugyou.text
+                        break
+                    except NoSuchElementException:
+                        continue
+                
+                if assignment["jyugyou"] == "N/A":
+                    try:
+                        jyugyou = driver.find_element("xpath", f'/html/body/div[1]/div[2]/div/div[1]/section/div/div/div[1]/div/div[2]/div[2]/div[{i + 1}]/div/div[2]/div[3]/div[2]/a')
+                        assignment["jyugyou"] = jyugyou.text
+                    except NoSuchElementException:
+                        pass
+
+                assignment["details"] = "N/A"
+                try:
+                    p = driver.find_element("xpath", f"/html/body/div[1]/div[2]/div/div[1]/section/div/div/div[1]/div/div[2]/div[2]/div[{i + 1}]/div/div[2]/div[3]/div[2]/div/p")
+                    assignment["details"] = p.text
+                except NoSuchElementException:
+                    pass
+                
+                if assignment["details"] == "N/A":
+                    try:
+                        p = driver.find_element("xpath", f"/html/body/div[1]/div[2]/div/div[1]/section/div/div/div[1]/div/div[2]/div[2]/div[{i + 1}]/div/div[2]/div[3]/div[2]/div/p[2]")
+                        assignment["details"] = p.text
+                    except NoSuchElementException:
+                        pass
+
+                try:
+                    a_element = driver.find_element("xpath", f"/html/body/div[1]/div[2]/div/div[1]/section/div/div/div[1]/div/div[2]/div[2]/div[{i + 1}]/div/div[2]/div[3]/div[2]/a")
+                    assignment["url"] = a_element.get_attribute("href")
+                except NoSuchElementException:
+                    assignment["url"] = "N/A"
+
+
+                assignments.append(assignment)
+
             except NoSuchElementException:
-                detail = "詳細はありません"
+                break
 
-            assignments.append({
-                "title": h3.text,
-                "limit": limit.text,
-                "detail": detail
-            })
-        except NoSuchElementException:
-            continue
+        return assignments
 
-    driver.quit()  # ドライバーを終了
+    except Exception as e:
+        return f"エラーが発生しました: {str(e)}"
 
-    # 課題のリストをJSON形式で返す
-    return jsonify(assignments)  # 課題のリストをJSON形式で返す
+    finally:
+        driver.quit()
 
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        session['username'] = username
+        session['password'] = password
+        return redirect(url_for('assignments'))
+    return render_template('login.html')
 
-@app.route('/kadai')
-def kadai():
-    return render_template('kadai.html')  # 課題リストを表示するページ
+@app.route('/assignments')
+def assignments():
+    if 'username' in session and 'password' in session:
+        assignments = get_moodle_data(session['username'], session['password'])
+        return render_template('assignments.html', assignments=assignments)
+    return redirect(url_for('index'))
+
+@app.route('/404')
+def not_found():
+    return render_template('404.html')
+
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)  
+    app.run(debug=True)
